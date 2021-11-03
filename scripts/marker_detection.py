@@ -19,44 +19,69 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import numpy as np
 import rospy
+from aruco_library import *
 
 
 class image_proc():
 
-	# Initialise everything
-	def __init__(self):
-		rospy.init_node('marker_detection') #Initialise rosnode 
-		
-		# Making a publisher 
-		
-		self.marker_pub = rospy.Publisher('/marker_info', Marker, queue_size=1)
-		
-		# ------------------------Add other ROS Publishers here-----------------------------------------------------
-	
-        	# Subscribing to /camera/camera/image_raw
+    # Initialise everything
+    def __init__(self):
+        rospy.init_node('marker_detection')  # Initialise rosnode
 
-		self.image_sub = rospy.Subscriber("/camera/camera/image_raw", Image, self.image_callback) #Subscribing to the camera topic
-		
-	        # -------------------------Add other ROS Subscribers here----------------------------------------------------
-        
-		self.img = np.empty([]) # This will contain your image frame from camera
-		self.bridge = CvBridge()
-		
-		self.marker_msg=Marker()  # This will contain the message structure of message type task_1/Marker
+        # Making a publisher
 
+        self.marker_pub = rospy.Publisher('/marker_info', Marker, queue_size=1)
 
-	# Callback function of amera topic
-	def image_callback(self, data):
-	# Note: Do not make this function lenghty, do all the processing outside this callback function
-		try:
-			self.img = self.bridge.imgmsg_to_cv2(data, "bgr8") # Converting the image to OpenCV standard image
-		except CvBridgeError as e:
-			print(e)
-			return
-			
-	def publish_data(self):
-		self.marker_pub.publish(self.marker_msg)
+        # ------------------------Add other ROS Publishers here-----------------------------------------------------
+
+        # Subscribing to /camera/camera/image_raw
+
+        # Subscribing to the camera topic
+        self.image_sub = rospy.Subscriber(
+            "/camera/camera/image_raw", Image, self.image_callback)
+
+        # -------------------------Add other ROS Subscribers here----------------------------------------------------
+
+        # This will contain your image frame from camera
+        self.img = np.empty([])
+        self.bridge = CvBridge()
+        self.rate = rospy.Rate(10)
+        # This will contain the message structure of message type task_1/Marker
+        self.marker_msg = Marker()
+        self.publish_data()
+
+    # Callback function of amera topic
+
+    def image_callback(self, data):
+        # Note: Do not make this function lenghty, do all the processing outside this callback function
+        try:
+            # Converting the image to OpenCV standard image
+            self.img = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+            return
+
+    def publish_data(self):
+        while not rospy.is_shutdown():
+            if len(self.img.shape) > 0:
+                Detected_ArUco_Markers = detect_ArUco(self.img)
+                angles = Calculate_orientation_in_degree(
+                    Detected_ArUco_Markers)
+                idm, center_x, center_y, angle = -1, 0, 0, 0
+                for id_, pos in Detected_ArUco_Markers.items():
+                    idm = id_
+                    center_x, center_y = np.int32((pos[0][0]+pos[0][2])/2)
+                    angle = angles[id_]
+                    rospy.loginfo(str(idm)+" "+str(center_x)+" "+str(center_y)+" "+str(angle))
+                    self.marker_msg = Marker(
+                        id_, center_x, center_y, 0, 0, 0, angle)
+                    self.marker_pub.publish(self.marker_msg)
+            self.rate.sleep()
+
 
 if __name__ == '__main__':
-    image_proc_obj = image_proc()
-    rospy.spin()
+    try:
+        image_proc_obj = image_proc()
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        pass

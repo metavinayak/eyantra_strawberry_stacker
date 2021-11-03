@@ -13,8 +13,7 @@ def detect_ArUco(img):
     # convert the image first into grayscale and then apply binary thresholding for better results
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     ret, gray = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
-    cv2.imwrite("gray.png", gray)
-
+    
     # generate the aruco dictionary and then detect the aruco markers in the current frame/image
     aruco_dict = aruco.Dictionary_get(aruco.DICT_5X5_1000)
     parameters = aruco.DetectorParameters_create()
