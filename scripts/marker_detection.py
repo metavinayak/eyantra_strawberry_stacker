@@ -48,6 +48,7 @@ class image_proc():
         self.rate = rospy.Rate(10)
         # This will contain the message structure of message type task_1/Marker
         self.marker_msg = Marker()
+        # publish the data to the designated topic
         self.publish_data()
 
     # Callback function of amera topic
@@ -62,20 +63,30 @@ class image_proc():
             return
 
     def publish_data(self):
+        # continuously detect the images, mark them and then publish the message to the designated topic
         while not rospy.is_shutdown():
+            # check whether the image has been detected or not
             if len(self.img.shape) > 0:
+                # Detect the ArUco markers in the image
                 Detected_ArUco_Markers = detect_ArUco(self.img)
+                # calculate the angles
                 angles = Calculate_orientation_in_degree(
                     Detected_ArUco_Markers)
+                # find the ids, centers and angles of the aruco markers and publish them to the topic
                 idm, center_x, center_y, angle = -1, 0, 0, 0
                 for id_, pos in Detected_ArUco_Markers.items():
+                    # assuming there can be multiple markers, we used a loop
                     idm = id_
+                    # assuming that right side is positive x axis and down side is positive y axis
+                    # and origin is the top left corner of the image, we find the center of the aruco marker
                     center_x, center_y = np.int32((pos[0][0]+pos[0][2])/2)
                     angle = angles[id_]
                     rospy.loginfo(str(idm)+" "+str(center_x)+" "+str(center_y)+" "+str(angle))
+                    # publish the message to the topic
                     self.marker_msg = Marker(
                         id_, center_x, center_y, 0, 0, 0, angle)
                     self.marker_pub.publish(self.marker_msg)
+            # for maintaining the frequency of 10hz
             self.rate.sleep()
 
 
